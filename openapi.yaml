@@ -1,0 +1,902 @@
+openapi: 3.0.0
+info:
+  title: FinTrack API
+  description: |
+    FinTrack adalah aplikasi fintech berbasis Laravel 12 dengan arsitektur Modular Monolith.
+    API ini menyediakan tiga modul utama:
+    - **Transaction Management**: Pencatatan dan kategorisasi transaksi dengan AI
+    - **Financial Analysis**: Analisis finansial dengan AI-powered insights
+    - **Financial Planning**: Goal-based financial planning
+
+    ## Fitur Utama
+    - 🔐 Autentikasi Token-based dengan Laravel Sanctum
+    - 🤖 AI-powered transaction categorization
+    - 📊 Real-time financial analytics
+    - 🎯 Goal tracking dan progress monitoring
+
+    ## Environment Setup
+    - Base URL: `http://localhost:8000/api`
+    - Autentikasi: Gunakan Bearer token yang diterima dari endpoint login
+    - Format request body: `application/json`
+
+  version: 1.0.0
+  contact:
+    name: FinTrack Support
+    email: support@fintrack.dev
+    url: https://github.com/yourusername/uas
+
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+  - url: https://api.fintrack.dev/api
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User registration, login, dan logout
+  - name: Transactions
+    description: CRUD operations untuk transaksi finansial
+  - name: Analysis
+    description: Financial analysis dengan AI insights
+  - name: Goals
+    description: Goal-based financial planning
+  - name: Plans
+    description: Financial planning dan recommendations
+  - name: Summary
+    description: Finance summary dan overview
+
+paths:
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Register User Baru
+      description: |
+        Mendaftarkan user baru ke sistem.
+        - Email harus unik
+        - Password minimal 8 karakter
+        - Response include access token untuk immediate login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                  minLength: 1
+                  maxLength: 255
+                  description: Nama lengkap user
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                  description: Email unik user
+                password:
+                  type: string
+                  format: password
+                  example: password123
+                  minLength: 8
+                  description: Password (minimal 8 karakter)
+                password_confirmation:
+                  type: string
+                  format: password
+                  example: password123
+                  description: Konfirmasi password (harus sama dengan password)
+      responses:
+        '200':
+          description: Registrasi berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    example: 1|abc123def456...
+                    description: Bearer token untuk autentikasi API
+              example:
+                user:
+                  id: 1
+                  name: John Doe
+                  email: john@example.com
+                  created_at: 2026-07-01T10:00:00Z
+                token: "1|abc123def456ghi789jkl"
+
+        '422':
+          description: Validasi gagal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  errors:
+                    type: object
+              example:
+                message: "The given data was invalid"
+                errors:
+                  email:
+                    - "Email sudah terdaftar"
+                  password:
+                    - "Password minimal 8 karakter"
+
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: Login User
+      description: |
+        Login dengan email dan password.
+        - Return access token untuk use di authorized requests
+        - Token berlaku selamanya atau sampai logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    example: 2|xyz789abc123...
+              example:
+                user:
+                  id: 1
+                  name: John Doe
+                  email: john@example.com
+                token: "2|xyz789abc123def456ghi"
+
+        '401':
+          description: Kredensial tidak valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid credentials"
+
+  /logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout User
+      description: |
+        Logout dan revoke current access token.
+        - Token tidak bisa digunakan lagi setelah logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out"
+
+  /transactions:
+    get:
+      tags:
+        - Transactions
+      summary: List Semua Transaksi User
+      description: |
+        Retrieve semua transaksi milik user yang login.
+        - Diurutkan berdasarkan date descending (terbaru dulu)
+        - Include detail amount, type, category, description
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List transaksi berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+              example:
+                - id: 1
+                  user_id: 1
+                  amount: "50000.00"
+                  type: expense
+                  category: Food
+                  description: Lunch at cafe
+                  date: 2026-07-01
+                  created_at: 2026-07-01T10:30:00Z
+                  updated_at: 2026-07-01T10:30:00Z
+                - id: 2
+                  user_id: 1
+                  amount: "150000.00"
+                  type: income
+                  category: Salary
+                  description: Monthly salary
+                  date: 2026-07-01
+                  created_at: 2026-07-01T08:00:00Z
+                  updated_at: 2026-07-01T08:00:00Z
+
+        '401':
+          description: Unauthorized - Token tidak valid/expired
+
+    post:
+      tags:
+        - Transactions
+      summary: Buat Transaksi Baru
+      description: |
+        Membuat transaksi baru untuk user yang login.
+        - Kategori bisa di-autofill oleh AI dari description
+        - Atau manual input kategori
+        - Amount dalam decimal, type: income atau expense
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - type
+                - description
+                - date
+              properties:
+                amount:
+                  type: number
+                  format: decimal
+                  example: 50000
+                  description: Jumlah transaksi
+                type:
+                  type: string
+                  enum: [income, expense]
+                  example: expense
+                  description: Tipe transaksi
+                category:
+                  type: string
+                  example: Food
+                  description: Kategori transaksi (opsional, auto-filled by AI)
+                description:
+                  type: string
+                  example: Lunch at cafe
+                  description: Deskripsi transaksi
+                date:
+                  type: string
+                  format: date
+                  example: 2026-07-01
+                  description: Tanggal transaksi
+      responses:
+        '201':
+          description: Transaksi berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+              example:
+                id: 3
+                user_id: 1
+                amount: "50000.00"
+                type: expense
+                category: Food
+                description: Lunch at cafe
+                date: 2026-07-01
+                created_at: 2026-07-01T12:00:00Z
+                updated_at: 2026-07-01T12:00:00Z
+
+        '422':
+          description: Validasi gagal
+
+  /transactions/{id}:
+    patch:
+      tags:
+        - Transactions
+      summary: Update Transaksi
+      description: |
+        Update detail transaksi yang sudah ada.
+        - Hanya owner transaksi yang bisa update
+        - Jika update description, kategori bisa di-recompute
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+          description: ID transaksi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: decimal
+                  example: 60000
+                type:
+                  type: string
+                  enum: [income, expense]
+                category:
+                  type: string
+                  example: Food
+                description:
+                  type: string
+                  example: Updated lunch description
+                date:
+                  type: string
+                  format: date
+                  example: 2026-07-01
+      responses:
+        '200':
+          description: Transaksi berhasil diupdate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+        '404':
+          description: Transaksi tidak ditemukan
+
+    delete:
+      tags:
+        - Transactions
+      summary: Hapus Transaksi
+      description: |
+        Menghapus transaksi dari database.
+        - Aksi tidak bisa di-undo
+        - Hanya owner transaksi yang bisa hapus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Transaksi berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Transaction deleted"
+
+        '404':
+          description: Transaksi tidak ditemukan
+
+  /goals:
+    get:
+      tags:
+        - Goals
+      summary: List Semua Goals User
+      description: |
+        Retrieve semua financial goals milik user.
+        - Diurutkan berdasarkan deadline (terdekat dulu)
+        - Include current progress tracking
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List goals berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Goal'
+              example:
+                - id: 1
+                  user_id: 1
+                  name: Save for vacation
+                  target_amount: "5000000.00"
+                  current_amount: "2500000.00"
+                  deadline: 2026-12-31
+                  created_at: 2026-07-01T10:00:00Z
+                  updated_at: 2026-07-01T10:00:00Z
+
+    post:
+      tags:
+        - Goals
+      summary: Buat Financial Goal Baru
+      description: |
+        Membuat goal finansial baru dengan target amount dan deadline.
+        - Target amount dalam decimal
+        - Deadline dalam format date
+        - Current amount auto-start dari 0
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - target_amount
+                - deadline
+              properties:
+                name:
+                  type: string
+                  example: Save for vacation
+                  description: Nama/deskripsi goal
+                target_amount:
+                  type: number
+                  format: decimal
+                  example: 5000000
+                  description: Target amount yang ingin dicapai
+                deadline:
+                  type: string
+                  format: date
+                  example: 2026-12-31
+                  description: Deadline untuk mencapai goal
+      responses:
+        '201':
+          description: Goal berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+
+  /goals/{id}:
+    patch:
+      tags:
+        - Goals
+      summary: Update Goal
+      description: |
+        Update target amount, current amount, atau deadline goal.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                target_amount:
+                  type: number
+                  format: decimal
+                current_amount:
+                  type: number
+                  format: decimal
+                deadline:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Goal berhasil diupdate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+
+    delete:
+      tags:
+        - Goals
+      summary: Hapus Goal
+      description: Menghapus financial goal dari database.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Goal berhasil dihapus
+
+  /analyze:
+    post:
+      tags:
+        - Analysis
+      summary: Generate Financial Analysis
+      description: |
+        Generate analisis finansial lengkap dari data transaksi user.
+        - Hitung total income, expense, balance
+        - Breakdown pengeluaran per kategori dengan persentase
+        - Generate AI-powered insight menggunakan Groq API
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Analisis berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  total_income:
+                    type: number
+                    format: decimal
+                  total_expense:
+                    type: number
+                    format: decimal
+                  balance:
+                    type: number
+                    format: decimal
+                  transaction_count:
+                    type: integer
+                  top_category:
+                    type: string
+                    nullable: true
+                  breakdowns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category:
+                          type: string
+                        percentage:
+                          type: number
+                          format: float
+                  ai_insights:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        insight:
+                          type: string
+              example:
+                id: 1
+                user_id: 1
+                total_income: "150000.00"
+                total_expense: "50000.00"
+                balance: "100000.00"
+                transaction_count: 2
+                top_category: Food
+                breakdowns:
+                  - category: Food
+                    percentage: 50.0
+                  - category: Transport
+                    percentage: 50.0
+                ai_insights:
+                  - insight: "Pengeluaran Anda untuk Food meningkat 20% bulan ini. Coba hemat dengan meal prep atau lunch di rumah untuk mengoptimalkan budget."
+
+  /analyze/latest:
+    get:
+      tags:
+        - Analysis
+      summary: Get Latest Financial Analysis
+      description: |
+        Retrieve analisis finansial terbaru user.
+        - Include category breakdowns
+        - Include AI insights
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Latest analysis berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  total_income:
+                    type: number
+                    format: decimal
+                  total_expense:
+                    type: number
+                    format: decimal
+                  balance:
+                    type: number
+                    format: decimal
+                  transaction_count:
+                    type: integer
+                  top_category:
+                    type: string
+                  breakdowns:
+                    type: array
+                    items:
+                      type: object
+                  ai_insights:
+                    type: array
+                    items:
+                      type: object
+                  created_at:
+                    type: string
+                    format: date-time
+
+        '404':
+          description: Belum ada analysis (belum ada transaksi)
+
+  /plans:
+    post:
+      tags:
+        - Plans
+      summary: Buat Financial Plan
+      description: |
+        Membuat rencana finansial berdasarkan goals dan analysis.
+        - Include rekomendasi investasi
+        - Based on current financial situation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Q3 2026 Financial Plan
+                description:
+                  type: string
+                  example: Plan untuk mencapai goals sebelum Q4
+      responses:
+        '201':
+          description: Plan berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+
+    get:
+      tags:
+        - Plans
+      summary: List Semua Plans
+      description: Retrieve semua financial plans user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List plans berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /plans/latest:
+    get:
+      tags:
+        - Plans
+      summary: Get Latest Plan
+      description: Retrieve financial plan terbaru user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Latest plan berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /finance/summary:
+    get:
+      tags:
+        - Summary
+      summary: Get Finance Summary
+      description: |
+        Retrieve ringkasan finansial lengkap user.
+        - Total income, expense, balance
+        - Recent transactions
+        - Goals progress
+        - Latest insights
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Finance summary berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_income:
+                    type: number
+                    format: decimal
+                  total_expense:
+                    type: number
+                    format: decimal
+                  balance:
+                    type: number
+                    format: decimal
+                  transaction_count:
+                    type: integer
+                  recent_transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+                  goals_summary:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Goal'
+                  latest_insights:
+                    type: string
+              example:
+                total_income: "150000.00"
+                total_expense: "50000.00"
+                balance: "100000.00"
+                transaction_count: 2
+                recent_transactions:
+                  - id: 1
+                    amount: "50000.00"
+                    type: expense
+                    category: Food
+                    description: Lunch at cafe
+                    date: 2026-07-01
+                goals_summary:
+                  - id: 1
+                    name: Save for vacation
+                    target_amount: "5000000.00"
+                    current_amount: "2500000.00"
+                    deadline: 2026-12-31
+                latest_insights: "Pengeluaran Anda terkontrol dengan baik..."
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-07-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-07-01T10:00:00Z
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        amount:
+          type: string
+          format: decimal
+          example: "50000.00"
+        type:
+          type: string
+          enum: [income, expense]
+          example: expense
+        category:
+          type: string
+          example: Food
+        description:
+          type: string
+          example: Lunch at cafe
+        date:
+          type: string
+          format: date
+          example: 2026-07-01
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Goal:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Save for vacation
+        target_amount:
+          type: string
+          format: decimal
+          example: "5000000.00"
+        current_amount:
+          type: string
+          format: decimal
+          example: "2500000.00"
+        deadline:
+          type: string
+          format: date
+          example: 2026-12-31
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+      description: |
+        Gunakan token yang diterima dari endpoint /login atau /register.
+        Tambahkan ke header: `Authorization: Bearer {token}`
